@@ -2,7 +2,8 @@ function pmat = maskedPeakDetect(chrom)
 % hardcoding some essential things that should stay relatively constant
 % over a batch processing paradigm, so I dont want to have to pass them in
 % and out fo the function.
-addpath '../../lisca/src/'
+addpath '../../lisca/src/'; % path to the probabilistic peak detection code.
+% this function can be found 
 pparams.sigma_peak = 0.8;
 pparams.sigma_noise = 8.7076e+03;
 pparams.numpy= 1;
