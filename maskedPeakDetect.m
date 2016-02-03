@@ -25,22 +25,35 @@ mask_holder = genMask(chrom, 'ion', 100);
     end
     % either way if we get here we have a tensor and we know its size
     if isempty(pmat)
-       pmat = zeros(szc);
-       for i = 1:size(mask_holder,1) % iterate over the masks.
-       % check dimensions of the output and the perform appropriate peak
-       % detection or transform first
-            mini_tic = squeeze(sum(sum(reshape(chrom(mask_holder(i,:)), [szc(1)/size(mask_holder,1),szc(2), szc(3)]),1),3));
-            p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
-            pmat(mask_holder(i,:)) =  repmat(p, [szc(3),1,szc(1)/size(mask_holder,1)]);
+       pmat = int16(zeros(szc)); % trade memory for processing and lose all precision beyond 3rd decimal place
+       
+       %% different behaviour for different chromatography and mask combinations
+       if numel(szc) > 3 % nope nope nope nope
+           error('4-D tensor passed to peak detection... noping the F out!');
+        
+       elseif numel(szc) == 3 % can only be GCxGC-MS
+           
+           
+       elseif numel(szc) == 2% can be GC-MS or GCxGC-FID
+           
+           
+       else % can only be GC-FID
+           
        end
-       disp('peak detection performed.');
+           for i = 1:size(mask_holder,1) % iterate over the masks.
+           
+                mini_tic = squeeze(sum(sum(reshape(chrom(mask_holder(i,:)), [szc(1)/size(mask_holder,1),szc(2), szc(3)]),1),3));
+                p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
+                pmat(mask_holder(i,:)) =  int16(10000*repmat(p, [szc(3),1,szc(1)/size(mask_holder,1)])); % implict round at 3rd decimal place 
+           end
+        
+           disp('peak detection performed.');
     end
 end % end function maskedPeakDetection
 
 function m = genMask(c, mtype, param)
     tic;
     sz = size(c.getRavel);
-    m.original_size = sz;
     m.type = mtype;
     switch mtype
 %%%%%%%%%%%%%%%%%%%%%%%%
