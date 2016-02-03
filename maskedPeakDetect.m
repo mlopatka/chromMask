@@ -1,15 +1,18 @@
 function pmat = maskedPeakDetect(chrom)
-% hardcoding some essential things that should stay relatively constant
-% over a batch processing paradigm, so I dont want to have to pass them in
-% and out fo the function.
+%
 addpath '../../lisca/src/'; % path to the probabilistic peak detection code.
-% this function can be found 
+% getPeakConv is found at https://github.com/mlopatka/getPeakConv
+%
+% hardcoding some essential things that should stay relatively constant over a batch processing paradigm.
+%% batch processing parameter choices
 pparams.sigma_peak = 0.8;
 pparams.sigma_noise = 8.7076e+03;
 pparams.numpy= 1;
 pparams.alpha = 0.75;
 pmat = [];
+masktype = 'ion';
 
+%% begin function
 mask_holder = genMask(chrom, 'ion', 100);
     %% all error checking block before we attempt to do anything.
     if isa(chrom, 'chrom2gram') % chrom2gram object passed.
@@ -32,23 +35,30 @@ mask_holder = genMask(chrom, 'ion', 100);
            error('4-D tensor passed to peak detection... noping the F out!');
         
        elseif numel(szc) == 3 % can only be GCxGC-MS
+           if strcmpi(mask_holder.type, 'rows') % row masking, need to sum accros multiple dimensions
+                for i = 1:size(mask_holder,1) % iterate over the masks.
+                    mini_tic = squeeze(sum(sum(reshape(chrom(mask_holder(i,:)), [szc(1)/size(mask_holder,1),szc(2), szc(3)]),1),3));
+                    p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
+                    pmat(mask_holder(i,:)) =  int16(10000*repmat(p, [szc(3),1,szc(1)/size(mask_holder,1)])); % implict round at 3rd decimal place 
+                end
+           elseif strcmpi(mask_holder.type, 'ion')
            
-           
+           elseif strcmpi(mask_holder.type, 'tile')
+               
+           elseif strcmpi(mask_holder.type, 'venetian')
+               
+           else
+               error('unrecognzed mask type designation, please update genMask function');
+           end
        elseif numel(szc) == 2% can be GC-MS or GCxGC-FID
            
            
        else % can only be GC-FID
-           
-       end
-           for i = 1:size(mask_holder,1) % iterate over the masks.
-           
-                mini_tic = squeeze(sum(sum(reshape(chrom(mask_holder(i,:)), [szc(1)/size(mask_holder,1),szc(2), szc(3)]),1),3));
-                p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
-                pmat(mask_holder(i,:)) =  int16(10000*repmat(p, [szc(3),1,szc(1)/size(mask_holder,1)])); % implict round at 3rd decimal place 
-           end
-        
-           disp('peak detection performed.');
-    end
+           % cant really do much masking, process as a vector and return p
+           pmat = int16(1000*getPeaksConv(1:numel(chrom), chrom, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0));
+       end % end condition deciding how to handle data based on dimensions/        
+    end % end generation of pmat with masked data
+    disp('peak detection performed.');
 end % end function maskedPeakDetection
 
 function m = genMask(c, mtype, param)
@@ -77,10 +87,12 @@ function m = genMask(c, mtype, param)
         case 'tile'
             %% Tile based, using 2-D tile structures.
             tile_idx = c.gentrerateTiles;
+            disp('2-D tiles mask specified');
 %%%%%%%%%%%%%%%%%%%%%%%%
         case 'ion'
             %% unravelled chrom2gram once per nominal mass channel
             mask_holder = int32(reshape([1:prod(sz)], [sz(2)*sz(1), sz(3)])');
+            disp('ion by ion mask defined in nominal mass channel dimension');
     end% end of the switch block
     b = toc;
     disp([mtype, ' mask generated... ',num2str(b), ' seconds elapsed.']);
