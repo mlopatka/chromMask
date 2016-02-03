@@ -6,14 +6,13 @@ addpath '../../lisca/src/'; % path to the probabilistic peak detection code.
 % hardcoding some essential things that should stay relatively constant over a batch processing paradigm.
 %% batch processing parameter choices
 pparams.sigma_peak = 0.8;
-pparams.sigma_noise = 8.7076e+03;
-pparams.numpy= 1;
+pparams.sigma_noise = 8.4679e+03;
+pparams.numpy= 2;
 pparams.alpha = 0.75;
 pmat = [];
-masktype = 'ion';
 
 %% begin function
-mask_holder = genMask(chrom, 'ion', 100);
+mask_holder = genMask(chrom, 'row', 100);
     %% all error checking block before we attempt to do anything.
     if isa(chrom, 'chrom2gram') % chrom2gram object passed.
         if ~isempty(chrom.p)
@@ -35,11 +34,11 @@ mask_holder = genMask(chrom, 'ion', 100);
            error('4-D tensor passed to peak detection... noping the F out!');
         
        elseif numel(szc) == 3 % can only be GCxGC-MS
-           if strcmpi(mask_holder.type, 'rows') % row masking, need to sum accros multiple dimensions
-                for i = 1:size(mask_holder,1) % iterate over the masks.
-                    mini_tic = squeeze(sum(sum(reshape(chrom(mask_holder(i,:)), [szc(1)/size(mask_holder,1),szc(2), szc(3)]),1),3));
+           if strcmpi(mask_holder.type, 'row') % row masking, need to sum accros multiple dimensions
+                for i = 1:size(mask_holder.mask,1) % iterate over the row masks.
+                    mini_tic = (sum(sum(reshape(chrom(mask_holder.mask(i,:)), [szc(1)/size(mask_holder.mask,1),szc(2),szc(3)]),1),3));
                     p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
-                    pmat(mask_holder(i,:)) =  int16(10000*repmat(p, [szc(3),1,szc(1)/size(mask_holder,1)])); % implict round at 3rd decimal place 
+                    pmat(mask_holder.mask(i,:)) = repmat(repmat(int16(1000*p),[(szc(1)/size(mask_holder.mask,1)),1]), [1,1,szc(3)]);
                 end
            elseif strcmpi(mask_holder.type, 'ion')
            
@@ -61,22 +60,21 @@ mask_holder = genMask(chrom, 'ion', 100);
     disp('peak detection performed.');
 end % end function maskedPeakDetection
 
-function m = genMask(c, mtype, param)
+function mask_holder = genMask(c, mtype, param)
     tic;
     sz = size(c.getRavel);
-    m.type = mtype;
+    mask_holder.type = mtype;
     switch mtype
 %%%%%%%%%%%%%%%%%%%%%%%%
-        case 'rows'
+        case 'row'
         %% 1-D rows pattern - for GCxGC-MS
         disp('row-wise mini tics for GCxGC-MS data selected');
         MASK_LEVELS = param;
         mask_idx = round(linspace(0,sz(1),MASK_LEVELS+1));
-        mask_holder = int32(zeros([MASK_LEVELS, mean(diff(mask_idx))*sz(2)*sz(3)])); % preallocate
-
-        for i  = 2:numel(mask_idx)
-            [X,Y,Z] = meshgrid([mask_idx(i-1)+1:mask_idx(i)],[1:sz(2)], [1:sz(3)]);
-            mask_holder(i-1,:) = int32(sub2ind(sz,X(:),Y(:),Z(:)));
+        mask_holder.mask = int32(zeros([MASK_LEVELS, mean(diff(mask_idx))*sz(2)*sz(3)])); % preallocate
+        for i = 2:numel(mask_idx)
+            [X,Y,Z] = ndgrid([mask_idx(i-1)+1:mask_idx(i)],[1:sz(2)], [1:sz(3)]);
+            mask_holder.mask(i-1,:) = int32(sub2ind(sz,X(:),Y(:),Z(:)));
         end
 %%%%%%%%%%%%%%%%%%%%%%%%
         case 'venetian'
@@ -91,7 +89,7 @@ function m = genMask(c, mtype, param)
 %%%%%%%%%%%%%%%%%%%%%%%%
         case 'ion'
             %% unravelled chrom2gram once per nominal mass channel
-            mask_holder = int32(reshape([1:prod(sz)], [sz(2)*sz(1), sz(3)])');
+            mask_holder.mask = int32(reshape([1:prod(sz)], [sz(2)*sz(1), sz(3)])');
             disp('ion by ion mask defined in nominal mass channel dimension');
     end% end of the switch block
     b = toc;
