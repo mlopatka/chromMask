@@ -42,7 +42,10 @@ mask_holder = genMask(chrom, 'ion', 100);
                end % end iterate over masks
            elseif strcmpi(mask_holder.type, 'ion')
                for i = 1:size(mask_holder.mask,1) % iterate over the row masks.
-                   tic
+                   tic;
+                   if i == 19
+                       keybaord
+                   end
                    mini_tic = chrom(mask_holder.mask(i,:));
                    % need to downsample for feasibility
                    mini_tic = downsample(mini_tic,10);
