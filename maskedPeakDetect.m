@@ -47,7 +47,7 @@ mask_holder = genMask(chrom, 'ion', 100);
                    % need to downsample for feasibility
                    mini_tic = downsample(mini_tic,10);
                    p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
-                   p = upsample(p,10);
+                   p = interp1([1:numel(p)],p,linspace(1,numel(p),10*numel(p)));% upsample with rough interp.
                    pmat(mask_holder.mask(i,:)) = reshape(int16(1000*p), [szc(1), szc(2)]);
                    toc
                end % end iterate over masks
@@ -88,7 +88,7 @@ function mask_holder = genMask(c, mtype, param)
 %%%%%%%%%%%%%%%%%%%%%%%%
         case 'venetian'
             %% venetian blinds pattern - for GCxGC-MS
-            blind_spacing  = param;
+            blind_spacing  = param; % now the parameter is the space between blinds
             disp('staggered strips - venetian blind mask specified');
 %%%%%%%%%%%%%%%%%%%%%%%%        
         case 'tile'
