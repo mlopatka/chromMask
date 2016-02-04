@@ -5,14 +5,14 @@ addpath '../../lisca/src/'; % path to the probabilistic peak detection code.
 %
 % hardcoding some essential things that should stay relatively constant over a batch processing paradigm.
 %% batch processing parameter choices
-pparams.sigma_peak = 0.8;
-pparams.sigma_noise = 8.4679e+03;
+pparams.sigma_peak = 0.95;
+pparams.sigma_noise = 154.0573;
 pparams.numpy= 2;
 pparams.alpha = 0.75;
 pmat = [];
 
 %% begin function
-mask_holder = genMask(chrom, 'row', 100);
+mask_holder = genMask(chrom, 'ion', 100);
     %% all error checking block before we attempt to do anything.
     if isa(chrom, 'chrom2gram') % chrom2gram object passed.
         if ~isempty(chrom.p)
@@ -35,13 +35,22 @@ mask_holder = genMask(chrom, 'row', 100);
         
        elseif numel(szc) == 3 % can only be GCxGC-MS
            if strcmpi(mask_holder.type, 'row') % row masking, need to sum accros multiple dimensions
-                for i = 1:size(mask_holder.mask,1) % iterate over the row masks.
-                    mini_tic = (sum(sum(reshape(chrom(mask_holder.mask(i,:)), [szc(1)/size(mask_holder.mask,1),szc(2),szc(3)]),1),3));
-                    p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
-                    pmat(mask_holder.mask(i,:)) = repmat(repmat(int16(1000*p),[(szc(1)/size(mask_holder.mask,1)),1]), [1,1,szc(3)]);
-                end
+               for i = 1:size(mask_holder.mask,1) % iterate over the row masks.
+                   mini_tic = (sum(sum(reshape(chrom(mask_holder.mask(i,:)), [szc(1)/size(mask_holder.mask,1),szc(2),szc(3)]),1),3));
+                   p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
+                   pmat(mask_holder.mask(i,:)) = repmat(repmat(int16(1000*p),[(szc(1)/size(mask_holder.mask,1)),1]), [1,1,szc(3)]);
+               end % end iterate over masks
            elseif strcmpi(mask_holder.type, 'ion')
-           
+               for i = 1:size(mask_holder.mask,1) % iterate over the row masks.
+                   tic
+                   mini_tic = chrom(mask_holder.mask(i,:));
+                   % need to downsample for feasibility
+                   mini_tic = downsample(mini_tic,10);
+                   p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
+                   p = upsample(p,10);
+                   pmat(mask_holder.mask(i,:)) = reshape(int16(1000*p), [szc(1), szc(2)]);
+                   toc
+               end % end iterate over masks
            elseif strcmpi(mask_holder.type, 'tile')
                
            elseif strcmpi(mask_holder.type, 'venetian')
