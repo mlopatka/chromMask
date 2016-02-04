@@ -63,7 +63,7 @@ mask_holder = genMask(chrom, 'ion', 100);
            end
        elseif numel(szc) == 2% can be GC-MS or GCxGC-FID
            
-           
+         
        else % can only be GC-FID
            % cant really do much masking, process as a vector and return p
            pmat = int16(1000*getPeaksConv(1:numel(chrom), chrom, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0));
@@ -103,6 +103,10 @@ function mask_holder = genMask(c, mtype, param)
             %% unravelled chrom2gram once per nominal mass channel
             mask_holder.mask = int32(reshape([1:prod(sz)], [sz(2)*sz(1), sz(3)])');
             disp('ion by ion mask defined in nominal mass channel dimension');
+%%%%%%%%%%%%%%%%%%%%%%%%            
+        case 'arbitrary'
+            %% arbitrary interval between pairs
+           
     end% end of the switch block
     b = toc;
     disp([mtype, ' mask generated... ',num2str(b), ' seconds elapsed.']);
