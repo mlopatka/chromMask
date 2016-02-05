@@ -34,11 +34,13 @@ function deut_coords = isolate_deuterated_signatures(c)
 %    ion_anchors = ion_anchors./repmat(sum(ion_anchors,2),[1, size(ion_anchors,2)]);
 %    save('anchors.mat', {'l', 'ion_anchors', 'D'});
 %% now we just load the saved anchor profiles
-    load anchors.mat	
+    load anchors.mat
+    %TODO replace with cleaner spectra.
+    
     t = c.getRavel;
     
     %define skewed euclidean distance equation
-    euclidDistance = @(x,y)  sqrt(sum((x'-y').^2));
+    %euclidDistance = @(x,y)  sqrt(sum((x'-y').^2));
     
     d1_search = 30; d2_search = 80;
     win_p(:,1) = l(:,1)-d1_search;
