@@ -49,6 +49,7 @@ mask_holder = genMask(chrom, 'ion', 100);
                    mini_tic = chrom(mask_holder.mask(i,:));
                    % need to downsample for feasibility
                    mini_tic = downsample(mini_tic,5);
+                   pparams.sigma_noise = std(double(mini_tic(end-400:end))); %dynamic noise model from end of spectra
                    p = getPeaksConv(1:numel(mini_tic), mini_tic, pparams.sigma_peak, pparams.sigma_noise, pparams.alpha, pparams.numpy, 0);
                    p = interp1([1:numel(p)],p,linspace(1,numel(p),(5*numel(p))));% upsample with rough interp.
                    pmat(mask_holder.mask(i,:)) = reshape(int16(1000*p), [szc(1), szc(2)]);
