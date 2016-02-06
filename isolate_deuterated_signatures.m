@@ -100,8 +100,8 @@ function deut_coords = isolate_deuterated_signatures(c)
             deut_coords(i,1) = win_p(i,1)+win_idx_1;
             deut_coords(i,2) = win_p(i,3)+win_idx_2;
             % diagnostic plots
-            search_window = t([win_p(i,1):win_p(i,2)],[win_p(i,3):win_p(i,4)], anchors{i,3}); 
-            imagesc(sum(search_window,3)); hold on; scatter(win_idx_2, win_idx_1, 'r*')
+%             search_window = t([win_p(i,1):win_p(i,2)],[win_p(i,3):win_p(i,4)], anchors{i,3}); 
+%             imagesc(sum(search_window,3)); hold on; scatter(win_idx_2, win_idx_1, 'r*')
         end
     end
        %% define a distribution for distance from ideal anchor location 2-D
