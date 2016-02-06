@@ -42,56 +42,79 @@ function deut_coords = isolate_deuterated_signatures(c)
     load anchors.mat 
     % These should be 14 by 4 cell array with the following fields:
     % {'compound name',[locations],[ions],[reference spectra]}
-    %TODO replace with cleaner spectra from GC-MS data
-
-    load anchors.mat
-    %TODO replace with cleaner spectra.
+    %TODO replace with cleaner spectra from GC-MS data    
     
-    t = c.getRavel;
-    
-    %define skewed euclidean distance equation
-    %euclidDistance = @(x,y)  sqrt(sum((x'-y').^2));
     l = reshape([anchors{:,2}],[],2);
-
     d1_search = 30; d2_search = 80;
     win_p(:,1) = l(:,1)-d1_search;
     win_p(:,2) = l(:,1)+d1_search;
-    win_p(:,3) = l(:,2)-d2_search;
-    win_p(:,4) = l(:,2)+d2_search;
+        
+    if isa(c,'chrom2gram')
+        t = c.getRavel;
+        win_p(:,3) = l(:,2)-d2_search;
+        win_p(:,4) = l(:,2)+d2_search;
+        deut_coords = zeros([size(win_p,1),2]);
+    else % must be GC-MS data
+        deut_coords = zeros([size(win_p,1),1]);
+    end
     
     clearvars l d1_search d2_search
-%     scatter(win_p(:,1), win_p(:,3), 'rp'); hold on; scatter(win_p(:,2), win_p(:,4), 'rp');
-%     hold on; scatter(l(:,1), l(:,2), 'bp')
+
     
-    %% define a distribution for distance from ideal anchor location
+    %% begin search loop if 1D GC-MS data
+    if ~isa(c,'chrom2gram')
+        for i = 1:size(win_p,1)
+            search_window = c(win_p(i,1):win_p(i,2), anchors{i,3}); % 1D search window
+            x_idx_rt = size(search_window,1);
+            y_p = zeros([x_idx_rt, 2]); % make sure no contaminations from last iteration
+            [x,y] = find(sum(search_window,2)>0); % this is HELLA sloppy , could be faster, but im tired now... optimize later with arithmetic.
+            dist_score = pdist2([x,y],[round(x_idx_rt/2),1], 'euclidean'); % ewuclidean distance by default.
+            y_p(:,1) = (wblpdf(dist_score,25,1.05));
+            y_p(dist_score==0,1) = max(y_p(:,1)); % override little cliff in the wbl pdf at 0.
+            y_p(or(isinf(dist_score), isnan(dist_score)),1) = 0;
+            y_p(:,1) = y_p(:,1)./max(y_p(:,1)); 
+            % likelihood of that distance from centroid
+
+            search_window = search_window./repmat(sum(search_window,2),[1, size(search_window,2)]);
+            corr_score = pdist2(anchors{i,4}(anchors{i,3}),search_window, 'cosine'); % must match in dimensionality with the masked t variable
+            %corr_score = pdist2(ion_anchors(i,:),search_window, 'seuclidean', sum(abs(D))); % this is interesting but requires a different distribution
+            y_p(:,2) = (pdf('normal',corr_score,0,0.1));
+            y_p(:,2) = y_p(:,2)./max(y_p(:,2));
+            %likelihood of that correlation in the mass channel 
+            lambda = 0.5; % weight the mass correlation more than the distance
+            [~, idx] = max((y_p(:,1)*lambda).*y_p(:,2)); % isolated most likely location of deuterated compound apex
+            deut_coords(i) = win_p(i,1)+idx;
+        end
+    %% begin search loop for 2D comprehensive chromatogram    
+    else
+        for i = 1:size(win_p,1)
+            search_window = t([win_p(i,3):win_p(i,4)],[win_p(i,1):win_p(i,2)], anchors{i,3});
+            [x_idx_w, y_idx_w, z_idx_w] = size(search_window);
+            y_p = zeros([x_idx_w * y_idx_w, 2]); % make sure no contaminations from last iteration
+            [x,y] = find(sum(search_window,3)>0); % this is HELLA sloppy , could be faster, but im tired now... optimize later with arithmetic.
+            dist_score = pdist2([x,y],[round(x_idx_w/2),round(y_idx_w/2)], 'euclidean'); % ewuclidean distance by default.
+            y_p(:,1) = (wblpdf(dist_score,25,1.05));
+            y_p(dist_score==0,1) = max(y_p(:,1)); % override little cliff in the wbl pdf at 0.
+            y_p(or(isinf(dist_score), isnan(dist_score)),1) = 0;
+            y_p(:,1) = y_p(:,1)./max(y_p(:,1)); 
+            % likelihood of that distance from centroid
+
+            search_window= double(reshape(search_window, [x_idx_w*y_idx_w,z_idx_w]));
+            search_window = search_window./repmat(sum(search_window,2),[1, size(search_window,2)]);
+            corr_score = pdist2(anchors{i,4}(anchors{i,3}),search_window, 'cosine'); % must match in dimensionality with the masked t variable
+            %corr_score = pdist2(ion_anchors(i,:),search_window, 'seuclidean', sum(abs(D))); % this is interesting but requires a different distribution
+            y_p(:,2) = (pdf('normal',corr_score,0,0.1));
+            y_p(:,2) = y_p(:,2)./max(y_p(:,2));
+            %likelihood of that correlation in the mass channel 
+            lambda = 0.5; % weight the mass correlation more than the distance
+            [~, idx] = max((y_p(:,1)*lambda).*y_p(:,2)); % isolated most likely location of deuterated compound apex
+            [win_idx_2, win_idx_1] = ind2sub([x_idx_w,y_idx_w],idx);
+            deut_coords(i,1) = win_p(i,1)+win_idx_1;
+            deut_coords(i,2) = win_p(i,3)+win_idx_2;
+        end
+    end
+       %% define a distribution for distance from ideal anchor location 2-D
 %     plot([0:1:100],wblpdf([0:1:100],25,1.05)) % lots of tail baaby!!!!
 
-    %% define a distribution for the ideal anchor mz correlation score
+    %% define a distribution for the ideal anchor mz correlation score 2-D
 %     plot([-1:0.01:2],(pdf('normal',[-1:0.01:2],1,0.25)))
-    deut_coords = zeros([size(win_p,1),2]);
-    
-    for i = 1:size(win_p,1)
-        search_window = t([win_p(i,3):win_p(i,4)],[win_p(i,1):win_p(i,2)], anchors{i,3});
-        [x_idx_w, y_idx_w, z_idx_w] = size(search_window);
-        y_p = zeros([x_idx_w * y_idx_w, 2]); % make sure no contaminations from last iteration
-        [x,y] = find(sum(search_window,3)>0); % this is HELLA sloppy , could be faster, but im tired now... optimize later with arithmetic.
-        dist_score = pdist2([x,y],[round(x_idx_w/2),round(y_idx_w/2)], 'euclidean'); % ewuclidean distance by default.
-        y_p(:,1) = (wblpdf(dist_score,25,1.05));
-        y_p(dist_score==0,1) = max(y_p(:,1)); % override little cliff in the wbl pdf at 0.
-        y_p(or(isinf(dist_score), isnan(dist_score)),1) = 0;
-        y_p(:,1) = y_p(:,1)./max(y_p(:,1)); 
-        % likelihood of that distance from centroid
-        
-        search_window= double(reshape(search_window, [x_idx_w*y_idx_w,z_idx_w]));
-        search_window = search_window./repmat(sum(search_window,2),[1, size(search_window,2)]);
-        corr_score = pdist2(anchors{i,4}(anchors{i,3}),search_window, 'cosine'); % must match in dimensionality with the masked t variable
-        %corr_score = pdist2(ion_anchors(i,:),search_window, 'seuclidean', sum(abs(D))); % this is interesting but requires a different distribution
-        y_p(:,2) = (pdf('normal',corr_score,0,0.1));
-        y_p(:,2) = y_p(:,2)./max(y_p(:,2));
-        %likelihood of that correlation in the mass channel 
-        lambda = 0.5; % weight the mass correlation more than the distance
-        [~, idx] = max((y_p(:,1)*lambda).*y_p(:,2)); % isolated most likely location of deuterated compound apex
-        [win_idx_2, win_idx_1] = ind2sub([x_idx_w,y_idx_w],idx);
-        deut_coords(i,1) = win_p(i,1)+win_idx_1;
-        deut_coords(i,2) = win_p(i,3)+win_idx_2;
-    end
