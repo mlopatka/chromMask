@@ -24,17 +24,24 @@ function deut_coords = isolate_deuterated_signatures(c)
 % All rights reserved.
 
 %% load the saved anchor profiles
-    load anchors.mat 
+    if isa(c,'chrom2gram') 
+        load anchors.mat 
+        l = reshape([anchors{:,2}],2,[])';
+    else
+        load anchors1.mat
+        anchors = anchors1;
+        l = [anchors{:,2}]';
+    end
     % These should be an n by 4 cell array with the following fields:
     % {'compound name'},{[location peak apex]},{[anchor specific ions]},{[reference spectra]}
     
-    l = reshape([anchors{:,2}],2,[])';
+    
     d1_search = 20; d2_search = 60;
     % define the seach window around the expected peak apex (+/-)
     win_p(:,1) = l(:,1)-d2_search;
     win_p(:,2) = l(:,1)+d2_search;
         
-    if isa(c,'chrom2gram') % only do this is the data is 2D comprehensive
+   if isa(c,'chrom2gram') % only do this is the data is 2D comprehensive
         t = c.getRavel;
         win_p(:,3) = l(:,2)-d1_search;
         win_p(:,4) = l(:,2)+d1_search;
@@ -42,8 +49,8 @@ function deut_coords = isolate_deuterated_signatures(c)
         
     else % must be GC-MS data
         deut_coords = zeros([size(win_p,1),1]);
-        win_p(:,1) = l(:,2)-d1_search*5;
-        win_p(:,2) = l(:,2)+d1_search*5;
+        win_p(:,1) = l-20000;
+        win_p(:,2) = l+20000;
     end
     
     clearvars d1_search d2_search % housekeeping
@@ -55,14 +62,15 @@ function deut_coords = isolate_deuterated_signatures(c)
             search_window = c(win_p(i,1):win_p(i,2), anchors{i,3}); % 1D search window
             x_idx_rt = size(search_window,1);
             y_p = zeros([x_idx_rt, 2]); % make sure no contaminations from last iteration
-            dist_score = pdist2(l(i,2),[win_p(i,1):win_p(i,2)]', 'euclidean'); % ewuclidean distance by default.
-            y_p(:,1) = (wblpdf(dist_score,25,1.05));
-            y_p(dist_score==0,1) = max(y_p(:,1)); % override little cliff in the wbl pdf at 0.
-            y_p(or(isinf(dist_score), isnan(dist_score)),1) = 0;
-            y_p(:,1) = y_p(:,1)./max(y_p(:,1)); 
+            dist_score = pdist2(l(i),[win_p(i,1):win_p(i,2)]', 'euclidean'); % ewuclidean distance by default.
+            y_p(:,1) = (wblpdf(dist_score,2500,0.9));
+            y_p(dist_score==0,1) = max(y_p(:,1)); % override little cliff in the wbl pdf near to 0.
+            y_p(or(isinf(dist_score), isnan(dist_score)),1) = min(y_p(:,1));
+            
+            %y_p(:,1) = y_p(:,1)./max(y_p(:,1)); 
             % likelihood of that distance from centroid
             % diagnostic plots
-            figure; plot(sum(c,2)); hold on; scatter(win_p(i,1), 1000000, 'rp'); hold on; scatter(win_p(i,2), 1000000, 'rp')
+            hold on; plot(sum(c,2)); hold on; scatter(win_p(i,1), 10000, 'rp'); hold on; scatter(win_p(i,2), 10000, 'rp')
 
             corr_score = pdist2(anchors{i,4}(anchors{i,3})',search_window, 'cosine'); % must match in dimensionality with the masked t variable
             %corr_score = pdist2(ion_anchors(i,:),search_window, 'seuclidean', sum(abs(D))); % this is interesting but requires a different distribution
