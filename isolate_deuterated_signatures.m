@@ -49,8 +49,8 @@ function deut_coords = isolate_deuterated_signatures(c)
         
     else % must be GC-MS data
         deut_coords = zeros([size(win_p,1),1]);
-        win_p(:,1) = l-20000;
-        win_p(:,2) = l+20000;
+        win_p(:,1) = l-12000;
+        win_p(:,2) = l+12000;
     end
     
     clearvars d1_search d2_search % housekeeping
@@ -63,21 +63,21 @@ function deut_coords = isolate_deuterated_signatures(c)
             x_idx_rt = size(search_window,1);
             y_p = zeros([x_idx_rt, 2]); % make sure no contaminations from last iteration
             dist_score = pdist2(l(i),[win_p(i,1):win_p(i,2)]', 'euclidean'); % ewuclidean distance by default.
-            y_p(:,1) = (wblpdf(dist_score,2500,0.9));
-            y_p(dist_score==0,1) = max(y_p(:,1)); % override little cliff in the wbl pdf near to 0.
+            y_p(:,1) = (wblpdf(dist_score,1800,1.2));
+            [rng] = find((y_p(:,1) == max(y_p(:,1))));
+            y_p([rng(1):rng(end)],1) = max(y_p(:,1)); % override little cliff in the wbl pdf near to 0.
             y_p(or(isinf(dist_score), isnan(dist_score)),1) = min(y_p(:,1));
-            
-            %y_p(:,1) = y_p(:,1)./max(y_p(:,1)); 
+            y_p(:,1) = y_p(:,1)./max(y_p(:,1)); 
             % likelihood of that distance from centroid
             % diagnostic plots
-            hold on; plot(sum(c,2)); hold on; scatter(win_p(i,1), 10000, 'rp'); hold on; scatter(win_p(i,2), 10000, 'rp')
+            %hold on; plot(sum(c,2)); hold on; scatter(win_p(i,1), 10000, 'rp'); hold on; scatter(win_p(i,2), 10000, 'rp')
 
             corr_score = pdist2(anchors{i,4}(anchors{i,3})',search_window, 'cosine'); % must match in dimensionality with the masked t variable
             %corr_score = pdist2(ion_anchors(i,:),search_window, 'seuclidean', sum(abs(D))); % this is interesting but requires a different distribution
-            y_p(:,2) = (pdf('normal',corr_score,0,0.1));
+            y_p(:,2) = (pdf('normal',corr_score,0,0.15));
             y_p(:,2) = y_p(:,2)./max(y_p(:,2));
             %likelihood of that correlation in the mass channel 
-            lambda = 0.5; % weight the mass correlation more than the distance
+            lambda = 0.25; % weight the mass correlation more than the distance
             [~, idx] = max((y_p(:,1)*lambda).*y_p(:,2)); % isolated most likely location of deuterated compound apex
             deut_coords(i) = win_p(i,1)+idx;
         end
